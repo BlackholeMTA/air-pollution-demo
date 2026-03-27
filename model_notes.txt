@@ -1,0 +1,23 @@
+Model: XGBoost gbtree
+Target: PM2.5
+Input forecast: pm25_cmaq_approx
+Features:
+- pm25_cmaq_approx
+- pm25_lag1
+- pm25_lag3
+- pm25_roll6
+- pm10_obs
+- pm10_lag1
+- pm10_roll6
+- pm10_aqi
+- pm25_aqi
+- vn_aqi
+- hour
+- dayofweek
+- station_code
+
+Kết quả:
+- MAE raw: 15.074
+- RMSE raw: 18.641
+- MAE corrected: 9.724
+- RMSE corrected: 10.607

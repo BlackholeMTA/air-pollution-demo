@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Jupyter / cache
+.ipynb_checkpoints/
+
+# Environment
+.venv/
+venv/
+env/
+
+# OS files
+.DS_Store
+Thumbs.db
+*:Zone.Identifier
+
+# Output data
+data/output/
+data/processed/
+
+# Raw data lớn - cân nhắc không đẩy
+data/raw/cmaq/
+data/raw/silam/
+data/raw/stations/
+
+# Streamlit
+.streamlit/
+
+# Model files
+*.pkl
+*.joblib
+
+# Logs
+*.log

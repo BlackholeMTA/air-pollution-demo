@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:15
+    container_name: air_demo_db
+    environment:
+      POSTGRES_DB: air_demo
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres_data:/var/lib/postgresql/data
+
+  ai_demo:
+    image: air-pollution-demo:latest
+    container_name: ai_demo_container
+    depends_on:
+      - db
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: air_demo
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    volumes:
+      - ./data:/app/data
+      - ./src:/app/src
+    command: python src/train_model.py
+
+volumes:
+  postgres_data:
