@@ -17,9 +17,6 @@ env/
 Thumbs.db
 *:Zone.Identifier
 
-# Output data
-data/output/
-data/processed/
 
 # Raw data lớn - cân nhắc không đẩy
 data/raw/cmaq/

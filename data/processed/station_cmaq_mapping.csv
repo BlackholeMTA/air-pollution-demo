@@ -1,0 +1,4 @@
+station_id,station_name,lat,lon,x_proj,y_proj,row,col,inside_domain
+HN_NVC,556 Nguyễn Văn Cừ,21.0492,105.8827,23140.540673686286,520276.1073884504,81,44,True
+HN_NC,Công viên Nhân Chính - Khuất Duy Tiến,21.0034,105.8037,14935.176396208868,515199.654837857,81,43,True
+HN_GP,Số 1 Giải Phóng - Bạch Mai,21.0009,105.8415,18864.08172512001,514925.9791198174,81,44,True

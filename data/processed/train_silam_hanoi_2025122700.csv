@@ -1,0 +1,4 @@
+timestamp,vn_aqi,pm10_aqi,pm25_aqi,station_id,station_name,pm10_obs,pm25_obs,silam_pm25,silam_pm10,silam_aqi
+2025-12-27,89,66,89,HN_GP,Số 1 Giải Phóng - Bạch Mai,79.9742,42.7808,197.31838989257807,232.7149200439453,5.0
+2025-12-27,60,60,54,HN_NC,Công viên Nhân Chính - Khuất Duy Tiến,61.8825,18.6358,197.31838989257807,232.7149200439453,5.0
+2025-12-27,78,62,78,HN_NVC,556 Nguyễn Văn Cừ,69.1992,34.28,197.31838989257807,232.7149200439453,5.0
