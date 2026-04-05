@@ -69,7 +69,7 @@ def add_legend(map_obj: folium.Map) -> None:
         position: fixed;
         bottom: 30px;
         left: 30px;
-        width: 220px;
+        width: 230px;
         z-index: 9999;
         background-color: white;
         border: 2px solid #ccc;
@@ -86,6 +86,26 @@ def add_legend(map_obj: folium.Map) -> None:
     </div>
     """
     map_obj.get_root().html.add_child(folium.Element(legend_html))
+
+
+def calc_rmse(y_true, y_pred):
+    return float(np.sqrt(mean_squared_error(y_true, y_pred)))
+
+
+def calc_nrmse(y_true, y_pred):
+    y_true = np.array(y_true, dtype=float)
+    y_pred = np.array(y_pred, dtype=float)
+    rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+    value_range = y_true.max() - y_true.min()
+    if value_range == 0:
+        return np.nan
+    return float(rmse / value_range)
+
+
+def fmt_metric(x):
+    if pd.isna(x):
+        return "NaN"
+    return f"{x:.3f}"
 
 
 def ensure_map_data(pred_full_path: Path, map_data_path: Path, model_name: str):
@@ -126,15 +146,43 @@ def ensure_map_data(pred_full_path: Path, map_data_path: Path, model_name: str):
     merged[keep_cols].to_csv(map_data_path, index=False)
 
 
-def fmt_metric(x):
-    return f"{x:.3f}"
-
-
 st.title("Dashboard hiệu chỉnh dự báo PM2.5 - Hà Nội")
 st.caption(
     "So sánh các nguồn forecast vật lý SILAM, CMAQ và mô hình AI hiệu chỉnh/Hybrid trên dữ liệu 3 trạm Hà Nội."
 )
-
+st.markdown("""
+<style>
+.metric-card {
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 18px 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    min-height: 170px;
+    margin-bottom: 20px;
+}
+.metric-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    color: #1f2937;
+}
+.metric-row {
+    font-size: 16px;
+    margin-bottom: 8px;
+    color: #374151;
+}
+.metric-label {
+    font-weight: 600;
+    color: #111827;
+}
+.metric-note {
+    margin-top: 10px;
+    font-size: 13px;
+    color: #6b7280;
+}
+</style>
+""", unsafe_allow_html=True)
 st.subheader("Lựa chọn nhánh mô hình")
 
 model_names = list(MODEL_CONFIG.keys())
@@ -156,7 +204,6 @@ pred_full_path = cfg["pred_full"]
 plot_path = cfg["plot"]
 map_data_path = cfg["map_data"]
 raw_cols = cfg["raw_cols"]
-raw_label = cfg["raw_label"]
 
 ensure_map_data(pred_full_path, map_data_path, selected_model)
 
@@ -173,41 +220,93 @@ if pred_test_path.exists():
     df_test = pd.read_csv(pred_test_path)
 
     mae_corr = mean_absolute_error(df_test["pm25_obs"], df_test["pm25_pred_corrected"])
-    rmse_corr = np.sqrt(mean_squared_error(df_test["pm25_obs"], df_test["pm25_pred_corrected"]))
+    rmse_corr = calc_rmse(df_test["pm25_obs"], df_test["pm25_pred_corrected"])
+    nrmse_corr = calc_nrmse(df_test["pm25_obs"], df_test["pm25_pred_corrected"])
 
     if selected_model == "HYBRID":
         mae_silam = mean_absolute_error(df_test["pm25_obs"], df_test["silam_pm25"])
-        rmse_silam = np.sqrt(mean_squared_error(df_test["pm25_obs"], df_test["silam_pm25"]))
+        rmse_silam = calc_rmse(df_test["pm25_obs"], df_test["silam_pm25"])
+        nrmse_silam = calc_nrmse(df_test["pm25_obs"], df_test["silam_pm25"])
 
         mae_cmaq = mean_absolute_error(df_test["pm25_obs"], df_test["cmaq_pm25_approx"])
-        rmse_cmaq = np.sqrt(mean_squared_error(df_test["pm25_obs"], df_test["cmaq_pm25_approx"]))
+        rmse_cmaq = calc_rmse(df_test["pm25_obs"], df_test["cmaq_pm25_approx"])
+        nrmse_cmaq = calc_nrmse(df_test["pm25_obs"], df_test["cmaq_pm25_approx"])
 
-        m1, m2, m3 = st.columns(3)
-        m1.metric("SILAM raw", f"MAE {mae_silam:.2f} | RMSE {rmse_silam:.2f}")
-        m2.metric("CMAQ raw", f"MAE {mae_cmaq:.2f} | RMSE {rmse_cmaq:.2f}")
-        m3.metric("AI hybrid", f"MAE {mae_corr:.2f} | RMSE {rmse_corr:.2f}")
+        c1, c2, c3 = st.columns(3)
+
+        with c1:
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-title">SILAM raw</div>
+                <div class="metric-row"><span class="metric-label">MAE:</span> {mae_silam:.3f}</div>
+                <div class="metric-row"><span class="metric-label">RMSE:</span> {rmse_silam:.3f}</div>
+                <div class="metric-row"><span class="metric-label">NRMSE:</span> {nrmse_silam:.3f}</div>
+                <div class="metric-note">Forecast vật lý từ SILAM trước hiệu chỉnh.</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with c2:
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-title">CMAQ raw</div>
+                <div class="metric-row"><span class="metric-label">MAE:</span> {mae_cmaq:.3f}</div>
+                <div class="metric-row"><span class="metric-label">RMSE:</span> {rmse_cmaq:.3f}</div>
+                <div class="metric-row"><span class="metric-label">NRMSE:</span> {nrmse_cmaq:.3f}</div>
+                <div class="metric-note">Forecast vật lý từ CMAQ trước hiệu chỉnh.</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with c3:
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-title">AI Hybrid</div>
+                <div class="metric-row"><span class="metric-label">MAE:</span> {mae_corr:.3f}</div>
+                <div class="metric-row"><span class="metric-label">RMSE:</span> {rmse_corr:.3f}</div>
+                <div class="metric-row"><span class="metric-label">NRMSE:</span> {nrmse_corr:.3f}</div>
+                <div class="metric-note">Kết quả tốt nhất hiện tại sau khi kết hợp SILAM + CMAQ + AI.</div>
+            </div>
+            """, unsafe_allow_html=True)
 
         st.info(
             "Nhánh Hybrid sử dụng đồng thời forecast từ SILAM và CMAQ cùng các đặc trưng lịch sử quan trắc. "
             "Đây là nhánh cho kết quả tốt nhất hiện tại."
         )
+
     else:
         raw_col = raw_cols[0]
         mae_raw = mean_absolute_error(df_test["pm25_obs"], df_test[raw_col])
-        rmse_raw = np.sqrt(mean_squared_error(df_test["pm25_obs"], df_test[raw_col]))
+        rmse_raw = calc_rmse(df_test["pm25_obs"], df_test[raw_col])
+        nrmse_raw = calc_nrmse(df_test["pm25_obs"], df_test[raw_col])
 
-        improvement_mae = mae_raw - mae_corr
         improvement_rmse = rmse_raw - rmse_corr
+        improvement_nrmse = nrmse_raw - nrmse_corr
 
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric("MAE raw", fmt_metric(mae_raw))
-        m2.metric("RMSE raw", fmt_metric(rmse_raw))
-        m3.metric("MAE corrected", fmt_metric(mae_corr), delta=f"-{improvement_mae:.2f}")
-        m4.metric("RMSE corrected", fmt_metric(rmse_corr), delta=f"-{improvement_rmse:.2f}")
+        c1, c2 = st.columns(2)
+
+        with c1:
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-title">{selected_model} raw</div>
+                <div class="metric-row"><span class="metric-label">MAE:</span> {mae_raw:.3f}</div>
+                <div class="metric-row"><span class="metric-label">RMSE:</span> {rmse_raw:.3f}</div>
+                <div class="metric-row"><span class="metric-label">NRMSE:</span> {nrmse_raw:.3f}</div>
+                <div class="metric-note">Kết quả forecast thô từ mô hình vật lý.</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with c2:
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-title">Sau AI hiệu chỉnh</div>
+                <div class="metric-row"><span class="metric-label">MAE:</span> {mae_corr:.3f}</div>
+                <div class="metric-row"><span class="metric-label">RMSE:</span> {rmse_corr:.3f}</div>
+                <div class="metric-row"><span class="metric-label">NRMSE:</span> {nrmse_corr:.3f}</div>
+                <div class="metric-note">Cải thiện RMSE: {improvement_rmse:.3f} | Cải thiện NRMSE: {improvement_nrmse:.3f}</div>
+            </div>
+            """, unsafe_allow_html=True)
 
         st.info(
-            f"Nhánh {selected_model} sau AI đã cải thiện so với forecast thô. "
-            f"MAE giảm {improvement_mae:.2f}, RMSE giảm {improvement_rmse:.2f}."
+            f"Nhánh {selected_model} sau AI đã cải thiện rõ rệt so với forecast thô."
         )
 else:
     st.warning(f"Chưa có file {pred_test_path.name}")
