@@ -260,6 +260,88 @@ def add_legend_aqi(map_obj: folium.Map) -> None:
     """
     map_obj.get_root().html.add_child(folium.Element(legend_html))
 
+def render_2day_station_map(day_df, title_text, map_key):
+    st.markdown(
+        f"<div style='text-align:center;font-size:20px;font-weight:700;color:#0b74c9;margin-bottom:10px;'>{title_text}</div>",
+        unsafe_allow_html=True,
+    )
+
+    if day_df.empty:
+        st.info("Không có dữ liệu cho ngày này.")
+        return
+
+    valid_points = day_df.dropna(subset=["lat", "lon"]).copy()
+    if valid_points.empty:
+        st.warning("Không có tọa độ hợp lệ để vẽ bản đồ.")
+        return
+
+    center_lat = valid_points["lat"].mean()
+    center_lon = valid_points["lon"].mean()
+
+    m = folium.Map(
+        location=[center_lat, center_lon],
+        zoom_start=11,
+        tiles="OpenStreetMap"
+    )
+    Fullscreen().add_to(m)
+    add_legend_aqi(m)
+
+    for _, row in valid_points.iterrows():
+        aqi_val = row.get("vn_aqi_hour", np.nan)
+        level = get_aqi_level_from_value(aqi_val)
+        color = get_aqi_color(level)
+
+        station_name = row.get("station_name", row.get("station_id", "N/A"))
+        station_id = row.get("station_id", "N/A")
+        aqi_text = str(int(aqi_val)) if pd.notna(aqi_val) else "NaN"
+        level_text = level if level else "Không có dữ liệu"
+
+        popup_html = f"""
+        <div style='font-size:14px; line-height:1.5; min-width:220px;'>
+            <b>Trạm:</b> {station_name}<br>
+            <b>Mã trạm:</b> {station_id}<br>
+            <b>AQI ngày:</b> {aqi_text}<br>
+            <b>Mức:</b> {level_text}
+        </div>
+        """
+
+        tooltip_text = f"{station_name} | AQI {aqi_text} | {level_text}"
+
+        folium.CircleMarker(
+            location=[row["lat"], row["lon"]],
+            radius=18,
+            popup=folium.Popup(popup_html, max_width=300),
+            tooltip=tooltip_text,
+            color=color,
+            fill=True,
+            fill_color=color,
+            fill_opacity=0.9,
+            weight=3,
+        ).add_to(m)
+
+        folium.map.Marker(
+            [row["lat"], row["lon"]],
+            icon=folium.DivIcon(
+                html=f"""
+                <div style="
+                    font-size:13px;
+                    font-weight:700;
+                    color:#111827;
+                    background:rgba(255,255,255,0.92);
+                    border:1px solid #d1d5db;
+                    border-radius:8px;
+                    padding:2px 8px;
+                    white-space:nowrap;
+                    transform: translate(18px, -10px);
+                ">
+                    {station_name}<br>AQI: {aqi_text}
+                </div>
+                """
+            )
+        ).add_to(m)
+
+    st_folium(m, width=650, height=520, key=map_key)
+
 
 def ensure_map_data(pred_full_path: Path, map_data_path: Path, model_name: str):
     if map_data_path.exists() or not pred_full_path.exists():
@@ -403,7 +485,135 @@ def render_station_aqi_side_panel(sub_df: pd.DataFrame, mode: str, value_col: st
             """,
             unsafe_allow_html=True
         )
+def get_aqi_bg_hex(aqi_value):
+    level = get_aqi_level_from_value(aqi_value)
+    return get_aqi_color(level)
 
+
+def get_station_display_name(station_id):
+    mapping = {
+        "HN_NVC": "556 Nguyễn Văn Cừ",
+        "HN_NC": "Công viên Nhân Chính",
+        "HN_GP": "Số 1 Giải Phóng",
+    }
+    return mapping.get(station_id, station_id)
+def get_aqi_level_emoji(level):
+    mapping = {
+        "Tốt": "🟢",
+        "Trung bình": "🟡",
+        "Kém": "🟠",
+        "Xấu": "🔴",
+        "Rất xấu": "🟣",
+        "Nguy hại": "🟤",
+    }
+    return mapping.get(level, "⚪")
+
+
+def render_2day_station_cards(day_df, title_text):
+    st.markdown(
+        f"<div style='text-align:center;font-size:20px;font-weight:700;color:#0b74c9;margin-bottom:10px;'>{title_text}</div>",
+        unsafe_allow_html=True,
+    )
+
+    with st.container(border=True):
+        if day_df.empty:
+            st.info("Không có dữ liệu cho ngày này.")
+            return
+
+        ordered_df = day_df.sort_values("vn_aqi_hour", ascending=False).copy()
+
+        for _, row in ordered_df.iterrows():
+            station_name = row.get("station_name", get_station_display_name(row.get("station_id")))
+            station_id = row.get("station_id", "N/A")
+            aqi_val = row.get("vn_aqi_hour", np.nan)
+            level = get_aqi_level_from_value(aqi_val)
+            emoji = get_aqi_level_emoji(level)
+            aqi_text = str(int(aqi_val)) if pd.notna(aqi_val) else "NaN"
+
+            card = st.container(border=True)
+            left, right = card.columns([2.6, 1])
+
+            with left:
+                st.markdown(f"**{station_name}**")
+                st.caption(station_id)
+                st.write(f"{emoji} **{level if level else 'Không có dữ liệu'}**")
+
+            with right:
+                st.metric("AQI", aqi_text)
+
+
+def render_2day_ranking_table(day_df, date_label):
+    st.markdown(
+        f"<div style='text-align:center;font-size:20px;font-weight:800;margin-top:14px;margin-bottom:10px;'>Xếp hạng chất lượng không khí<br>{date_label}</div>",
+        unsafe_allow_html=True,
+    )
+
+    if day_df.empty:
+        st.info("Không có dữ liệu để xếp hạng.")
+        return
+
+    rank_df = day_df.copy()
+    rank_df["Trạm"] = rank_df["station_id"].apply(get_station_display_name)
+    rank_df["AQI"] = rank_df["vn_aqi_hour"].round().astype("Int64")
+    rank_df["Mức"] = rank_df["AQI"].apply(get_aqi_level_from_value)
+    rank_df = rank_df.sort_values("AQI", ascending=False).reset_index(drop=True)
+    rank_df.insert(0, "Xếp hạng", rank_df.index + 1)
+
+    display_df = rank_df[["Xếp hạng", "Trạm", "AQI", "Mức"]].copy()
+
+    def style_aqi(val):
+        if pd.isna(val):
+            return ""
+        level = get_aqi_level_from_value(val)
+        bg = get_aqi_color(level)
+        fg = "#ffffff" if level in {"Xấu", "Rất xấu", "Nguy hại"} else "#111827"
+        return f"background-color: {bg}; color: {fg}; font-weight: 700; text-align: center;"
+
+    styler = (
+        display_df.style
+        .map(style_aqi, subset=["AQI"])
+        .set_properties(**{"text-align": "center"}, subset=["Xếp hạng", "AQI", "Mức"])
+    )
+
+    st.dataframe(styler, use_container_width=True, hide_index=True)
+
+
+def prepare_2day_forecast_table(aqi_df):
+    """
+    Lấy đúng 2 ngày 30/12/2025 và 31/12/2025.
+    Giá trị đại diện mỗi trạm trong ngày là AQI lớn nhất của ngày đó.
+    Giữ luôn lat/lon đã được merge sẵn từ metadata.
+    """
+    if aqi_df is None or aqi_df.empty:
+        return None, []
+
+    df = aqi_df.copy()
+    df = df.dropna(subset=["timestamp"])
+    df["date_only"] = pd.to_datetime(df["timestamp"]).dt.date
+
+    valid = df.dropna(subset=["vn_aqi_hour"]).copy()
+    if valid.empty:
+        return None, []
+
+    target_dates = [
+        pd.to_datetime("2025-12-30").date(),
+        pd.to_datetime("2025-12-31").date(),
+    ]
+
+    valid = valid[valid["date_only"].isin(target_dates)].copy()
+    if valid.empty:
+        return None, []
+
+    # Giữ station_name, lat, lon đã có sẵn từ aqi_df
+    keep_cols = ["date_only", "station_id", "station_name", "lat", "lon", "vn_aqi_hour"]
+    keep_cols = [c for c in keep_cols if c in valid.columns]
+    valid = valid[keep_cols].copy()
+
+    # Lấy AQI lớn nhất trong ngày cho mỗi trạm
+    idx = valid.groupby(["date_only", "station_id"])["vn_aqi_hour"].idxmax()
+    daily = valid.loc[idx].copy().reset_index(drop=True)
+
+    return daily, target_dates
 
 # =========================
 # STYLE
@@ -521,6 +731,7 @@ status_cols[3].success("AI gbtree: OK")
 status_cols[4].success("VN_AQI gbtree: OK")
 
 main_tabs = st.tabs([
+    "Dự báo 48h",
     "VN_AQI",
     "VN_AQI tái tính",
     "Tổng quan",
@@ -528,11 +739,54 @@ main_tabs = st.tabs([
     "PM2.5",
     "Bảng dữ liệu"
 ])
+# =========================
+# TAB 0 - DỰ BÁO 48H
+# =========================
+with main_tabs[0]:
+    st.subheader("Dự báo chất lượng không khí 2 ngày cho 3 trạm")
+    st.caption("Hiển thị nhanh mức AQI dự báo theo ngày cho 3 trạm Hà Nội, dùng AQI lớn nhất trong ngày để đại diện mức cảnh báo.")
 
+    daily_forecast_df, selected_dates = prepare_2day_forecast_table(aqi_df)
+
+    if daily_forecast_df is None or len(selected_dates) == 0:
+        st.warning("Chưa có đủ dữ liệu AQI dự báo để tạo tab Dự báo 48h.")
+    else:
+        day1 = selected_dates[0]
+        day2 = selected_dates[1] if len(selected_dates) > 1 else None
+
+        day1_df = daily_forecast_df[daily_forecast_df["date_only"] == day1].copy()
+        day2_df = daily_forecast_df[daily_forecast_df["date_only"] == day2].copy() if day2 else pd.DataFrame()
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            render_2day_station_map(
+                day1_df,
+                f"Dự báo chất lượng không khí ngày: {pd.to_datetime(str(day1)).strftime('%d/%m/%Y')}",
+                map_key=f"forecast_map_{day1}"
+            )
+            render_2day_ranking_table(
+                day1_df,
+                f"Ngày {pd.to_datetime(str(day1)).strftime('%d/%m/%Y')}"
+            )
+
+        with col2:
+            if day2 is not None:
+                render_2day_station_map(
+                    day2_df,
+                    f"Dự báo chất lượng không khí ngày: {pd.to_datetime(str(day2)).strftime('%d/%m/%Y')}",
+                    map_key=f"forecast_map_{day2}"
+                )
+                render_2day_ranking_table(
+                    day2_df,
+                    f"Ngày {pd.to_datetime(str(day2)).strftime('%d/%m/%Y')}"
+                )
+            else:
+                st.info("Hiện chỉ có 1 ngày đủ dữ liệu dự báo.")
 # =========================
 # TAB 1 - VN_AQI DỰ BÁO
 # =========================
-with main_tabs[0]:
+with main_tabs[1]:
     st.subheader("VN_AQI từ dự báo 6 chất")
 
     if aqi_df is None or aqi_df.empty:
@@ -693,7 +947,7 @@ with main_tabs[0]:
 # =========================
 # TAB 2 - VN_AQI TÁI TÍNH
 # =========================
-with main_tabs[1]:
+with main_tabs[2]:
     st.subheader("VN_AQI tái tính từ quan trắc")
 
     if recomp_df is None or recomp_df.empty:
@@ -885,7 +1139,7 @@ with main_tabs[1]:
 # =========================
 # TAB 3 - TỔNG QUAN
 # =========================
-with main_tabs[2]:
+with main_tabs[3]:
     st.subheader("Tổng quan hệ thống")
 
     c1, c2, c3, c4 = st.columns(4)
@@ -917,7 +1171,7 @@ with main_tabs[2]:
 # =========================
 # TAB 4 - DỰ BÁO 6 CHẤT
 # =========================
-with main_tabs[3]:
+with main_tabs[4]:
     st.subheader("Dự báo 6 chất ô nhiễm")
 
     if pred_6 is None or pred_6.empty:
@@ -1022,7 +1276,7 @@ with main_tabs[3]:
 # =========================
 # TAB 5 - PM2.5
 # =========================
-with main_tabs[4]:
+with main_tabs[5]:
     st.subheader("Nhánh dashboard PM2.5 theo app cũ")
 
     model_names = list(MODEL_CONFIG.keys())
@@ -1141,7 +1395,7 @@ with main_tabs[4]:
 # =========================
 # TAB 6 - BẢNG DỮ LIỆU
 # =========================
-with main_tabs[5]:
+with main_tabs[6]:
     st.subheader("Bảng dữ liệu tổng hợp")
 
     option = st.selectbox(
