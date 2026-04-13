@@ -21,7 +21,6 @@ Thumbs.db
 # Raw data lớn - cân nhắc không đẩy
 data/raw/cmaq/
 data/raw/silam/
-data/raw/stations/
 
 # Streamlit
 .streamlit/
