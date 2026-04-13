@@ -671,7 +671,7 @@ with main_tabs[0]:
                     weight=2
                 ).add_to(m)
 
-            st_folium(m, width=980, height=560)
+            st_folium(m, width=980, height=560, key=f"map_aqi_pred_{selected_time}_{aqi_map_mode}")
 
         with c_side:
             if aqi_map_mode == "VN_AQI dự báo":
@@ -857,7 +857,7 @@ with main_tabs[1]:
                     weight=2
                 ).add_to(m)
 
-            st_folium(m, width=980, height=560)
+            st_folium(m, width=980, height=560, key=f"map_aqi_recomp_{selected_time}_{recomp_map_mode}")
 
         with c_side:
             if recomp_map_mode == "AQI tái tính":
@@ -1132,7 +1132,7 @@ with main_tabs[4]:
                 weight=2
             ).add_to(m)
 
-        st_folium(m, width=1150, height=560)
+        st_folium(m, width=1150, height=560, key=f"map_pm25_{selected_model}_{selected_time}_{color_mode}")
 
     st.subheader("Biểu đồ so sánh")
     if plot_path.exists():
@@ -1151,7 +1151,8 @@ with main_tabs[5]:
             "vn_aqi_from_predictions_7days_gbtree",
             "vn_aqi_recomputed_from_observations",
             "pollutant_metrics_6models_gbtree"
-        ]
+        ],
+        key="data_table_option"
     )
 
     if option == "predictions_6pollutants_7days_gbtree":
